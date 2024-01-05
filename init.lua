@@ -43,6 +43,8 @@ P.S. You can delete this when you're done too. It's your config now :)
 --  NOTE: Must happen before plugins are required (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
+vim.cmd [[autocmd BufWritePre <buffer> lua vim.lsp.buf.format()]]
+
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    https://github.com/folke/lazy.nvim
@@ -66,6 +68,7 @@ vim.opt.rtp:prepend(lazypath)
 --
 --  You can also configure plugins after the setup call,
 --    as they will be available in your neovim runtime.
+--
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
 
@@ -75,9 +78,26 @@ require('lazy').setup({
 
   -- Detect tabstop and shiftwidth automatically
   'tpope/vim-sleuth',
+ 
+  "rebelot/kanagawa.nvim",
 
   -- NOTE: This is where your plugins related to LSP can be installed.
   --  The configuration is done below. Search for lspconfig to find it below.
+  --
+  {
+  "ray-x/go.nvim",
+  dependencies = {  -- optional packages
+    "ray-x/guihua.lua",
+    "neovim/nvim-lspconfig",
+    "nvim-treesitter/nvim-treesitter",
+  },
+  config = function()
+    require("go").setup()
+  end,
+  event = {"CmdlineEnter"},
+  ft = {"go", 'gomod'},
+  build = ':lua require("go.install").update_all_sync()' -- if you need to install/update all binaries
+},
   {
     -- LSP Configuration & Plugins
     'neovim/nvim-lspconfig',
@@ -194,7 +214,7 @@ require('lazy').setup({
     'navarasu/onedark.nvim',
     priority = 1000,
     config = function()
-      vim.cmd.colorscheme 'onedark'
+      vim.cmd.colorscheme 'kanagawa'
     end,
   },
 
@@ -562,9 +582,31 @@ require('mason-lspconfig').setup()
 --
 --  If you want to override the default filetypes that your language server will attach to you can
 --  define the property 'filetypes' to the map in question.
+--
+local format_sync_grp = vim.api.nvim_create_augroup("GoImport", {})
+vim.api.nvim_create_autocmd("BufWritePre", {
+  pattern = "*.go",
+  callback = function()
+   require('go.format').goimport()
+  end,
+  group = format_sync_grp,
+})
+
+vim.filetype.add({
+    extension = {
+        templ = "templ",
+    },
+})
+
 local servers = {
   -- clangd = {},
-  -- gopls = {},
+  gopls = {
+    usePlaceholders = true,
+    analyses = {
+      unusedparams = true,
+    }
+
+  },
   -- pyright = {},
   -- rust_analyzer = {},
   -- tsserver = {},
@@ -593,6 +635,7 @@ local mason_lspconfig = require 'mason-lspconfig'
 mason_lspconfig.setup {
   ensure_installed = vim.tbl_keys(servers),
 }
+
 
 mason_lspconfig.setup_handlers {
   function(server_name)
